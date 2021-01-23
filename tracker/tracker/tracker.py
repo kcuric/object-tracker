@@ -1,4 +1,5 @@
 from tracker.services import api
+from tracker.data import state
 
 import cv2
 
@@ -7,7 +8,7 @@ class Tracker(object):
   incident_reported = False
 
   def __init__(self):
-    self.camera = cv2.VideoCapture(0)
+    self.camera = cv2.VideoCapture(1)
     self.tracker = cv2.TrackerKCF_create()
     success, initial_image = self.camera.read()
     if(success):
@@ -27,12 +28,21 @@ class Tracker(object):
 
       if(success):
         if(self.incident_reported):
-          self.incident_reported = False
+          try:
+            id = state.get_last_order_id()
+            api.mark_order_as_completed(id)
+            self.incident_reported = False
+          except Exception:
+            print('Cannot contact the server.')
         self.draw_box(image, bbox)
       else:
         if(not self.incident_reported):
-          api.create_object_missing_report()
-          self.incident_reported = True
+          try:
+            id = api.create_product_missing_report()
+            state.set_last_order_id(id)
+            self.incident_reported = True
+          except Exception:
+            print('Cannot contact the server.')
       
       cv2.imshow('Tracking', image)
       
